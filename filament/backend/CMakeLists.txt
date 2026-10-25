@@ -234,6 +234,7 @@ if (FILAMENT_SUPPORTS_VULKAN)
             src/vulkan/VulkanHandles.h
             src/vulkan/VulkanMemory.cpp
             src/vulkan/VulkanMemory.h
+            src/vulkan/VulkanPipeline.h
             src/vulkan/VulkanPipelineCache.cpp
             src/vulkan/VulkanPipelineCache.h
             src/vulkan/VulkanPipelineLayoutCache.cpp
@@ -641,6 +642,9 @@ if (FILAMENT_BUILD_TESTING)
             test/test_AsyncUploads.cpp
             test/test_Platform.cpp
         )
+        if (FILAMENT_SUPPORTS_VULKAN)
+            list(APPEND BACKEND_TEST_SRC test/test_VulkanPipeline.cpp)
+        endif()
         if (FILAMENT_SUPPORTS_WEBGPU)
             list(APPEND BACKEND_TEST_SRC
                     test/test_WebGPUAsyncTaskCounter.cpp

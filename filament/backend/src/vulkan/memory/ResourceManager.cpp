@@ -17,6 +17,7 @@
 #include "vulkan/memory/ResourceManager.h"
 
 #include "vulkan/VulkanHandles.h"
+#include "vulkan/VulkanPipeline.h"
 
 #include <utils/Logger.h>
 #include <utils/Panic.h>
@@ -132,6 +133,9 @@ void ResourceManager::destroyWithType(ResourceType type, HandleId id) {
             break;
         case ResourceType::RENDER_PASS:
             destruct<VulkanRenderPass>(Handle<VulkanRenderPass>(id));
+            break;
+        case ResourceType::PIPELINE:
+            destruct<VulkanPipeline>(Handle<VulkanPipeline>(id));
             break;
         case ResourceType::UNDEFINED_TYPE:
             break;

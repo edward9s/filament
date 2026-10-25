@@ -18,6 +18,7 @@
 
 #include "vulkan/memory/ResourceManager.h"
 #include "vulkan/VulkanHandles.h"
+#include "vulkan/VulkanPipeline.h"
 
 namespace filament::backend::fvkmemory {
 
@@ -44,6 +45,7 @@ template ResourceType getTypeEnum<VulkanSemaphore>() noexcept;
 template ResourceType getTypeEnum<VulkanStream>() noexcept;
 template ResourceType getTypeEnum<VulkanFramebuffer>() noexcept;
 template ResourceType getTypeEnum<VulkanRenderPass>() noexcept;
+template ResourceType getTypeEnum<VulkanPipeline>() noexcept;
 
 template<typename D>
 ResourceType getTypeEnum() noexcept {
@@ -116,6 +118,9 @@ ResourceType getTypeEnum() noexcept {
     if constexpr (std::is_same_v<D, VulkanRenderPass>) {
         return ResourceType::RENDER_PASS;
     }
+    if constexpr (std::is_same_v<D, VulkanPipeline>) {
+        return ResourceType::PIPELINE;
+    }
     return ResourceType::UNDEFINED_TYPE;
 }
 
@@ -167,6 +172,8 @@ std::string_view getTypeStr(ResourceType type) {
             return "Framebuffer";
         case ResourceType::RENDER_PASS:
             return "RenderPass";
+        case ResourceType::PIPELINE:
+            return "Pipeline";
         case ResourceType::UNDEFINED_TYPE:
             return "";
     }
