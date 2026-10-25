@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include <limits.h>
-#include <gtest/gtest.h>
-
 #include <utils/Path.h>
+
+#include <gtest/gtest.h>
 
 #include <iosfwd>
 #include <string>
 #include <vector>
+
+#include <limits.h>
 
 #ifndef PATH_MAX    // should be in <limits.h>
 #define PATH_MAX    4096
@@ -134,6 +135,15 @@ TEST(WinPathTest, Split) {
     EXPECT_EQ("bin", segments[4]);
 }
 
+TEST(WinPathTest, SplitDriveRoots) {
+    EXPECT_EQ((std::vector<std::string>{"d:\\", "folder", "file"}),
+            Path("d:/folder/file").split());
+    EXPECT_EQ((std::vector<std::string>{"d:\\"}), Path("d:\\").split());
+    EXPECT_EQ((std::vector<std::string>{"D:"}), Path("D:").split());
+    EXPECT_EQ((std::vector<std::string>{"d:folder", "file"}),
+            Path("d:folder/file").split());
+}
+
 TEST(WinPathTest, Concatenate) {
     Path root("C:\\Volumes\\Replicant\\blue");
 
@@ -217,3 +227,4 @@ TEST(PathTest, GetParent) {
     r = p.getParent();
     EXPECT_EQ("C:\\", r);
 }
+

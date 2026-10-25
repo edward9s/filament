@@ -15,15 +15,32 @@
  */
 
 #include <utils/Allocator.h>
+#include <utils/CallStack.h>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <bitset>
+#include <limits>
 #include <utility>
 #include <vector>
 
 using namespace utils;
+
+#if defined(WIN32)
+TEST(CallStackTest, WindowsCaptureAndFormatting) {
+    CallStack stack = CallStack::unwind();
+    ASSERT_GT(stack.getFrameCount(), 0u);
+    for (size_t i = 0; i < stack.getFrameCount(); ++i) {
+        EXPECT_NE(stack[i], 0);
+    }
+    io::sstream output;
+    output << stack;
+    EXPECT_GT(output.length(), 0u);
+    stack.update(std::numeric_limits<size_t>::max());
+    EXPECT_EQ(stack.getFrameCount(), 0u);
+}
+#endif
 
 TEST(AllocatorTest, LinearAllocator) {
     char scratch[1024];
@@ -736,3 +753,4 @@ TEST(AllocatorTest, LinearAllocatorStackInterleaved) {
     EXPECT_TRUE(la.free(a, 64));
     EXPECT_EQ(scratch, la.getCurrent());
 }
+

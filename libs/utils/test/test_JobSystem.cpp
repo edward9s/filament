@@ -1055,6 +1055,14 @@ TEST(JobSystem, JobSystemStealingWithManyAdoptableSlots) {
 }
 
 TEST(JobSystem, JobSystemLostWakeupRace) {
+    // Windows thread creation and its timer granularity make 5,000 sleep / spawn
+    // rounds take much longer than 10 seconds. Each round still requires all jobs
+    // to complete within 200 ms, so a lost wakeup fails at the original deadline.
+#if defined(_WIN32)
+    auto const timeout = std::chrono::seconds(180);
+#else
+    auto const timeout = std::chrono::seconds(10);
+#endif
     bool const finished = runWithTimeout([]() {
         constexpr size_t WORKER_COUNT = 1;
         constexpr size_t PRODUCER_COUNT = 4;
@@ -1103,7 +1111,7 @@ TEST(JobSystem, JobSystemLostWakeupRace) {
                 std::this_thread::yield();
             }
         }
-    }, std::chrono::seconds(10));
+    }, timeout);
 
     EXPECT_TRUE(finished);
 }
@@ -1314,6 +1322,26 @@ TEST(JobSystem, NullJobOperations) {
     js.emancipate();
 }
 
+TEST(JobSystem, JobPoolCapacityAtEveryAlignment) {
+    using Job = JobSystem::Job;
+    constexpr size_t alignment = alignof(Job);
+    constexpr size_t bytes = JobSystem::MAX_JOB_COUNT * sizeof(Job) + alignment - 1;
+    std::vector<char> storage(bytes + alignment - 1);
+    std::vector<void*> jobs;
+    jobs.reserve(JobSystem::MAX_JOB_COUNT);
+    for (size_t offset = 0; offset < alignment; ++offset) {
+        ThreadSafeObjectPoolAllocator<Job> pool(storage.data() + offset, bytes);
+        jobs.clear();
+        while (void* job = pool.alloc()) {
+            jobs.push_back(job);
+        }
+        EXPECT_EQ(jobs.size(), JobSystem::MAX_JOB_COUNT) << "base offset " << offset;
+        for (void* job : jobs) {
+            pool.free(job);
+        }
+    }
+}
+
 TEST(JobSystem, JobPoolExhaustionNullJobRun) {
     JobSystem js(JobSystem::SINGLE_THREADED);
     js.adopt();
@@ -1367,3 +1395,4 @@ TEST(JobSystem, JobPoolExhaustionNullJobRun) {
 
     js.emancipate();
 }
+

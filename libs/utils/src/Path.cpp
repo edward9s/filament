@@ -193,9 +193,16 @@ std::vector<std::string> Path::split() const {
     size_t current;
     ssize_t next = -1;
 
-    // If there is a leading disk designator such as C:, this naturally becomes the first segment.
-    // However if there there is leading slash or back slash, we need to explicitly preserve it.
-    // Note that we are guaranteed to have at least one char in the path at this point.
+    // Keep an absolute Windows drive root, including its separator, as one segment.
+#if defined(WIN32)
+    if (m_path.size() >= 3 && m_path[1] == ':' && m_path[2] == SEPARATOR &&
+            ((m_path[0] >= 'A' && m_path[0] <= 'Z') ||
+             (m_path[0] >= 'a' && m_path[0] <= 'z'))) {
+        segments.push_back(m_path.substr(0, 3));
+        next = 2;
+    } else
+#endif
+    // Preserve a leading slash or backslash as the first segment.
     if (m_path[0] == '/' || m_path[0] == '\\') {
         segments.push_back(m_path.substr(0, 1));
         next = 0;
@@ -308,3 +315,4 @@ bool Path::unlinkFile() {
 }
 
 } // namespace utils
+

@@ -36,6 +36,7 @@
 #include <utils/debug.h>
 #include <utils/Log.h>
 #include <utils/Logger.h>
+#include <utils/Mutex.h>
 #include <utils/ostream.h>
 #include <utils/Panic.h>
 
@@ -183,7 +184,9 @@ void JobSystem::setThreadAffinityById(size_t id) noexcept {
 
 UTILS_NOINLINE
 JobSystem::JobSystem(uint32_t const userThreadCount, uint32_t adoptableThreadsCount) noexcept
-    : mJobPool("JobSystem Job pool", MAX_JOB_COUNT * sizeof(Job)),
+    // HeapArea uses malloc, which need not align its base to a Job's cache line.
+    // Leave room for the allocator's alignment adjustment without losing a job slot.
+    : mJobPool("JobSystem Job pool", MAX_JOB_COUNT * sizeof(Job) + alignof(Job) - 1),
       mJobStorageBase(static_cast<Job *>(mJobPool.getAllocator().getBase()))
 {
     FILAMENT_TRACING_ENABLE(FILAMENT_TRACING_CATEGORY_JOBSYSTEM);
@@ -880,3 +883,4 @@ io::ostream& operator<<(io::ostream& out, JobSystem const& js) {
 template class ThreadMap<JobSystem::ThreadState*>;
 
 } // namespace utils
+
