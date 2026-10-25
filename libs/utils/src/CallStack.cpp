@@ -21,7 +21,6 @@
 #include <utils/ostream.h>
 
 #include <algorithm>
-#include <limits>
 #include <memory>
 #include <cstdlib>
 
@@ -99,14 +98,12 @@ size_t CallStack::getFrameCount() const noexcept {
 
 void CallStack::update(size_t ignore) noexcept {
 #if defined(WIN32)
-    m_frame_count = 0;
-    if (ignore > std::numeric_limits<ULONG>::max()) {
-        return;
-    }
     void* frames[NUM_FRAMES];
-    m_frame_count = ::CaptureStackBackTrace(ULONG(ignore), ULONG(NUM_FRAMES), frames, nullptr);
+    size_t const count = ::CaptureStackBackTrace(0, ULONG(NUM_FRAMES), frames, nullptr);
+    size_t const skipped = std::min(ignore, count);
+    m_frame_count = count - skipped;
     for (size_t i = 0; i < m_frame_count; ++i) {
-        m_stack[i].pc = intptr_t(frames[i]);
+        m_stack[i].pc = intptr_t(frames[skipped + i]);
     }
 #else
     update_gcc(ignore);

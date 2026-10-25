@@ -37,8 +37,12 @@ TEST(CallStackTest, WindowsCaptureAndFormatting) {
     io::sstream output;
     output << stack;
     EXPECT_GT(output.length(), 0u);
+    stack.update(std::numeric_limits<unsigned long>::max());
+    EXPECT_EQ(stack.getFrameCount(), 0u);
     stack.update(std::numeric_limits<size_t>::max());
     EXPECT_EQ(stack.getFrameCount(), 0u);
+    stack.update();
+    EXPECT_GT(stack.getFrameCount(), 0u);
 }
 #endif
 
