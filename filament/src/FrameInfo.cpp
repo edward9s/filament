@@ -48,7 +48,8 @@ using namespace utils;
 using namespace backend;
 
 FrameInfoManager::FrameInfoManager(FEngine& engine, DriverApi& driver) noexcept
-    : mJobQueue("FrameInfoGpuComplete", JobSystem::Priority::URGENT_DISPLAY),
+    : mUserFrameHistory(FixedCapacityVector<Renderer::FrameInfo>::with_capacity(MAX_FRAMETIME_HISTORY)),
+      mJobQueue("FrameInfoGpuComplete", JobSystem::Priority::URGENT_DISPLAY),
       mHasTimerQueries(driver.isFrameTimeSupported()),
       mDisableGpuFrameComplete(engine.features.engine.frame_info.disable_gpu_complete_metric) {
     if (mHasTimerQueries) {
@@ -316,7 +317,9 @@ void FrameInfoManager::updateUserHistory(FSwapChain* swapChain, DriverApi& drive
         mLastSeenSwapChain = swapChain;
     }
 
-    auto result = FixedCapacityVector<Renderer::FrameInfo>::with_capacity(MAX_FRAMETIME_HISTORY);
+    // A history Slice expires at this call. Keep its backing allocation for the next frame.
+    auto& result = mUserFrameHistory;
+    result.clear();
     auto& history = mFrameTimeHistory;
     size_t i = 0;
     size_t const c = history.size();
@@ -382,16 +385,16 @@ void FrameInfoManager::updateUserHistory(FSwapChain* swapChain, DriverApi& drive
                 .frameScheduleTime              = toTimepoint(entry.frameScheduleTime)
         });
     }
-    std::swap(mUserFrameHistory, result);
 }
 
 FixedCapacityVector<Renderer::FrameInfo> FrameInfoManager::getFrameInfoHistory(
         size_t const historySize) const {
-    auto result = mUserFrameHistory;
-    if (result.size() >= historySize) {
-        result.resize(historySize);
+    auto const count = std::min<size_t>(historySize, mUserFrameHistory.size());
+    if (count == 0) {
+        return {};
     }
-    return result;
+    return FixedCapacityVector<Renderer::FrameInfo>(
+            getFrameInfoHistorySlice().first(count));
 }
 
 void FrameInfoManager::waitForGpu() {
@@ -399,3 +402,4 @@ void FrameInfoManager::waitForGpu() {
 }
 
 } // namespace filament
+

@@ -28,6 +28,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#if defined(WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #if !defined(__ANDROID__) && !defined(WIN32) && !defined(__EMSCRIPTEN__) && !(defined(__linux__) && !defined(__GLIBC__))
 #include <execinfo.h>
 #define HAS_EXECINFO 1
@@ -90,7 +97,17 @@ size_t CallStack::getFrameCount() const noexcept {
 }
 
 void CallStack::update(size_t ignore) noexcept {
+#if defined(WIN32)
+    void* frames[NUM_FRAMES];
+    size_t const count = ::CaptureStackBackTrace(0, ULONG(NUM_FRAMES), frames, nullptr);
+    size_t const skipped = std::min(ignore, count);
+    m_frame_count = count - skipped;
+    for (size_t i = 0; i < m_frame_count; ++i) {
+        m_stack[i].pc = intptr_t(frames[skipped + i]);
+    }
+#else
     update_gcc(ignore);
+#endif
 }
 
 void CallStack::update_gcc(size_t UTILS_UNUSED ignore) noexcept {
@@ -170,8 +187,14 @@ io::ostream& operator<<(io::ostream& stream, CallStack const& UTILS_UNUSED calls
         }
     }
     stream << io::endl;
+#elif defined(WIN32)
+    for (size_t i = 0; i < callstack.getFrameCount(); ++i) {
+        stream << "#" << i << "\t" << reinterpret_cast<void*>(callstack[i]) << "\n";
+    }
+    stream << io::endl;
 #endif
     return stream;
 }
 
 } // namespace utils
+

@@ -386,7 +386,7 @@ uint32_t identifyGraphicsQueueFamilyIndex(VkPhysicalDevice physicalDevice, VkQue
     uint32_t graphicsQueueFamilyIndex = INVALID_VK_INDEX;
     for (uint32_t j = 0; j < queueFamiliesProperties.size(); ++j) {
         VkQueueFamilyProperties props = queueFamiliesProperties[j];
-        if (props.queueCount != 0 && props.queueFlags & flags) {
+        if (props.queueCount != 0 && (props.queueFlags & flags) == flags) {
             graphicsQueueFamilyIndex = j;
             break;
         }
@@ -762,24 +762,36 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     auto queues = getPhysicalDeviceQueueFamilyPropertiesHelper(getPhysicalDevice());
     const size_t graphicsQueuesCount = queues[mImpl->mGraphicsQueueFamilyIndex].queueCount;
 
+    // Protected and ordinary queues in the same family share its total capacity.
+    const uint32_t reserved = context.mProtectedMemorySupported &&
+            mImpl->mProtectedGraphicsQueueFamilyIndex == mImpl->mGraphicsQueueFamilyIndex ? 1u : 0u;
+    FILAMENT_CHECK_PRECONDITION(graphicsQueuesCount >= 1u + reserved)
+            << "Queue family cannot provide ordinary and protected graphics queues";
+    const bool hasAsyncQueue = graphicsQueuesCount > 1u + reserved;
+
     if (mImpl->mDevice == VK_NULL_HANDLE) {
         createLogicalDeviceAndQueues(deviceExts, context.mPhysicalDeviceFeatures.features,
                 context.mPhysicalDeviceVk11Features, context.mProtectedMemorySupported,
-                requestedFeatures, graphicsQueuesCount > 1);
+                requestedFeatures, hasAsyncQueue);
     }
 
     assert_invariant(mImpl->mDevice != VK_NULL_HANDLE);
     assert_invariant(mImpl->mGraphicsQueueFamilyIndex != INVALID_VK_INDEX);
     assert_invariant(mImpl->mGraphicsQueueIndex != INVALID_VK_INDEX);
 
-    vkGetDeviceQueue(mImpl->mDevice, mImpl->mGraphicsQueueFamilyIndex, mImpl->mGraphicsQueueIndex,
-            &mImpl->mGraphicsQueue);
+    VkDeviceQueueInfo2 graphicsInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
+        .flags = 0,
+        .queueFamilyIndex = mImpl->mGraphicsQueueFamilyIndex,
+        .queueIndex = mImpl->mGraphicsQueueIndex,
+    };
+    vkGetDeviceQueue2(mImpl->mDevice, &graphicsInfo, &mImpl->mGraphicsQueue);
     assert_invariant(mImpl->mGraphicsQueue != VK_NULL_HANDLE);
 
-    if (graphicsQueuesCount > 1) {
+    if (hasAsyncQueue) {
         // If we have more than one graphical queue, use one as the async queue
-        vkGetDeviceQueue(mImpl->mDevice, mImpl->mGraphicsQueueFamilyIndex, mImpl->mGraphicsQueueIndex + 1,
-            &mImpl->mAsyncQueue);
+        graphicsInfo.queueIndex = mImpl->mGraphicsQueueIndex + 1;
+        vkGetDeviceQueue2(mImpl->mDevice, &graphicsInfo, &mImpl->mAsyncQueue);
     }
 
     if (context.mProtectedMemorySupported) {
@@ -1257,6 +1269,8 @@ void VulkanPlatform::createLogicalDeviceAndQueues(const ExtensionSet& deviceExte
     // Protected queue
     deviceQueueCreateInfo[1] = deviceQueueCreateInfo[0];
     deviceQueueCreateInfo[1].flags = VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT;
+    deviceQueueCreateInfo[1].queueFamilyIndex = mImpl->mProtectedGraphicsQueueFamilyIndex;
+    deviceQueueCreateInfo[1].queueCount = 1;
 
     bool const hasProtectedQueue = mImpl->mProtectedGraphicsQueueFamilyIndex != INVALID_VK_INDEX;
     deviceCreateInfo.queueCreateInfoCount = hasProtectedQueue ? 2 : 1;
@@ -1281,6 +1295,7 @@ void VulkanPlatform::createLogicalDeviceAndQueues(const ExtensionSet& deviceExte
     VkPhysicalDeviceVulkan11Features enabledVk11Features = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
         .multiview = vk11Features.multiview,
+        .protectedMemory = hasProtectedQueue ? VK_TRUE : VK_FALSE,
 #if defined(__ANDROID__)
         .samplerYcbcrConversion = vk11Features.samplerYcbcrConversion,
 #endif
@@ -1306,25 +1321,6 @@ void VulkanPlatform::createLogicalDeviceAndQueues(const ExtensionSet& deviceExte
     };
     if (setContains(deviceExtensions, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
         chainStruct(&deviceCreateInfo, &portability);
-    }
-
-    VkPhysicalDeviceMultiviewFeaturesKHR multiview = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR,
-        .multiview = vk11Features.multiview,
-        .multiviewGeometryShader = VK_FALSE,
-        .multiviewTessellationShader = VK_FALSE,
-    };
-    if (setContains(deviceExtensions, VK_KHR_MULTIVIEW_EXTENSION_NAME)) {
-        chainStruct(&deviceCreateInfo, &multiview);
-    }
-
-    VkPhysicalDeviceProtectedMemoryFeatures protectedMemory = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
-        .protectedMemory = VK_TRUE,
-    };
-    if (hasProtectedQueue) {
-        // Enable protected memory, if requested.
-        chainStruct(&deviceCreateInfo, &protectedMemory);
     }
 
     VkPhysicalDeviceGlobalPriorityQueryFeaturesKHR globalPriority = {

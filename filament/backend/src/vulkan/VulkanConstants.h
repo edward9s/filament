@@ -211,9 +211,7 @@ constexpr static const int FVK_MAX_COMMAND_BUFFERS = 3 * 15;
 // be extremely slow. If this number is high, the memory footprint will be large.
 constexpr static const int FVK_MAX_PIPELINE_AGE = FVK_MAX_COMMAND_BUFFERS;
 
-// VulkanPipelineCache does not track which command buffers contain references to which pipelines,
-// instead it simply waits for at least FVK_MAX_COMMAND_BUFFERS submissions to occur before
-// destroying any unused pipeline object.
-static_assert(FVK_MAX_PIPELINE_AGE >= FVK_MAX_COMMAND_BUFFERS);
+// Pipeline age controls cache retention; resource_ptr references in command buffers
+// independently guarantee lifetime until the corresponding GPU submissions complete.
 
 #endif

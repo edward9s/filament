@@ -58,6 +58,11 @@ if (FILAMENT_BUILD_TESTING)
     # The following tests rely on private APIs that are stripped
     # away in Release builds
     if (TNT_DEV)
+        add_executable(test_frame_info test_FrameInfo.cpp)
+        target_link_libraries(test_frame_info PRIVATE filament gtest)
+        target_compile_options(test_frame_info PRIVATE ${COMPILER_FLAGS})
+        set_target_properties(test_frame_info PROPERTIES FOLDER Tests)
+
         add_executable(test_${TARGET}
                 MockDriver.h
                 filament_AtlasAllocator_test.cpp
@@ -110,3 +115,4 @@ if (FILAMENT_BUILD_TESTING)
         target_link_libraries(test_framerate PRIVATE filament gtest utils mediandk android)
     endif()
 endif()
+

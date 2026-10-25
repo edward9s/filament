@@ -234,6 +234,7 @@ if (FILAMENT_SUPPORTS_VULKAN)
             src/vulkan/VulkanHandles.h
             src/vulkan/VulkanMemory.cpp
             src/vulkan/VulkanMemory.h
+            src/vulkan/VulkanPipeline.h
             src/vulkan/VulkanPipelineCache.cpp
             src/vulkan/VulkanPipelineCache.h
             src/vulkan/VulkanPipelineLayoutCache.cpp
@@ -793,4 +794,10 @@ if (FILAMENT_BUILD_TESTING)
 
         set_target_properties(metal_utils_test PROPERTIES FOLDER Tests)
     endif()
+endif()
+
+if (FILAMENT_BUILD_TESTING AND FILAMENT_SUPPORTS_VULKAN AND IS_HOST_PLATFORM)
+    add_executable(test_vulkan_pipeline test/test_VulkanPipeline.cpp)
+    target_link_libraries(test_vulkan_pipeline PRIVATE backend gtest)
+    set_target_properties(test_vulkan_pipeline PROPERTIES FOLDER Tests)
 endif()

@@ -20,6 +20,7 @@
 #include "CallbackManager.h"
 #include "CompilerThreadPool.h"
 #include "VulkanCommands.h"
+#include "VulkanPipeline.h"
 
 #include <backend/DriverEnums.h>
 #include <backend/TargetBufferInfo.h>
@@ -98,8 +99,10 @@ public:
      * @param device The device that the pipelines will be created and run on.
      * @param context Information about the current instance of Vulkan, such as supported extensions,
      *                and enabled features.
+     * @param resourceManager Owns deferred pipeline destruction.
      */
-    VulkanPipelineCache(DriverBase& driver, VkDevice device, VulkanContext const& context);
+    VulkanPipelineCache(DriverBase& driver, VkDevice device, VulkanContext const& context,
+            fvkmemory::ResourceManager& resourceManager);
 
     // Loads a fake pipeline into memory on a separate thread, with the intent of
     // preloading the Vulkan cache with enough information to have a cache hit when
@@ -223,15 +226,13 @@ private:
     #pragma clang diagnostic pop
 #endif
 
-    // The timestamp associated with a given cache entry represents time as a count of flush
-    // events since the cache was constructed. If any cache entry was most recently used over
-    // FVK_MAX_PIPELINE_AGE flushes in the past, then we can be sure that it is no longer
-    // being used by the GPU, and is therefore safe to destroy or reclaim.
+    // Cache age controls retention only. Resource references held by command buffers
+    // protect pipelines until all submitted uses have completed on the GPU.
     using Timestamp = uint64_t;
     Timestamp mCurrentTime = 0;
 
     struct PipelineCacheEntry {
-        VkPipeline handle;
+        fvkmemory::resource_ptr<VulkanPipeline> pipeline;
         Timestamp lastUsed;
     };
 
@@ -258,6 +259,7 @@ private:
 
     // Immutable state.
     VkDevice mDevice = VK_NULL_HANDLE;
+    fvkmemory::ResourceManager& mResourceManager;
 
     // Vuklan Driver pipeline cache handle. In the cases a pipeline has been  evicted by the `gc`,
     // recreating the same pipeline is cheaper, helping with frame stalling.
