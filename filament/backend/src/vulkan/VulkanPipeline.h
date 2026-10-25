@@ -29,6 +29,9 @@ struct VulkanPipeline : fvkmemory::Resource {
     VulkanPipeline(VkDevice device, VkPipeline handle) noexcept
             : device(device), handle(handle) {}
 
+    VulkanPipeline(VulkanPipeline const&) = delete;
+    VulkanPipeline& operator=(VulkanPipeline const&) = delete;
+
     ~VulkanPipeline() {
         bluevk::vkDestroyPipeline(device, handle, nullptr);
     }

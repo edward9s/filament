@@ -20,6 +20,16 @@
 
 #include <bluevk/BlueVK.h>
 
+// BlueVK's Xlib platform headers define macros that collide with GoogleTest.
+#ifdef Bool
+#undef Bool
+#endif
+#ifdef None
+#undef None
+#endif
+#ifdef Status
+#undef Status
+#endif
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -92,3 +102,8 @@ TEST_F(VulkanPipelineLifetime, ReplacementDoesNotReleaseOldSubmission) {
     EXPECT_EQ(gDestroyedPipelines, 2u);
 }
 } // namespace
+
+int main(int argc, char** argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
